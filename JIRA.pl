@@ -6,7 +6,6 @@ use Term::ReadKey;
 use Getopt::Long;
 use LWP::UserAgent;
 use Text::CSV;
-use Data::Dumper;
 use Date::Manip;
 use JSON;
 
@@ -15,11 +14,11 @@ $ENV{'PERL_LWP_SSL_VERIFY_HOSTNAME'} = 0;
 my ( $project, $theUser, $thePass, $theURL, $done, $points );
 
 GetOptions (
-                "proj=s"      => \$project,
-                "user=s"      => \$theUser,
-                "url=s"       => \$theURL,
-                "done=s"      => \$done,
-                "pts=s"       => \$points,
+            "proj=s"    => \$project,
+            "user=s"    => \$theUser,
+            "url=s"     => \$theURL,
+            "done=s"    => \$done,
+            "pts=s"     => \$points,
             );
 
 unless($project && $theUser && $theURL && $done && $points) {
@@ -33,14 +32,9 @@ $thePass = ReadLine(0);
 chomp($thePass);
 ReadMode('normal');
 
-#clean URL
-$theURL =~ s!^https?://(?:www\.)?!!i;
-$theURL =~ s!/.*!!;
-$theURL =~ s/[\?\#\:].*//;
+$base_url = &clean_url($base_url);
 
-my (%issue_statuses, $time_passed, $theStatuses, $file, @columns, $upper_range);
-my $date1 = new Date::Manip::Date;
-my $date2 = $date1->new_date();
+my (%issue_statuses, $time_passed, $theStatuses, $file, @columns, $upper_range, $theData);
 
 my $csv = Text::CSV->new ( { binary => 1 } ) or die "Cannot use CSV: ".Text::CSV->error_diag();
 
@@ -57,7 +51,7 @@ my $initialData = &hitTheAPI($base_url, $initialQuery, $theIncrement, $theUser, 
 
 do {
 
-	my $theData = &hitTheAPI($base_url, $theQuery, $theIncrement, $theUser, $thePass);
+	$theData = &hitTheAPI($base_url, $theQuery, $theIncrement, $theUser, $thePass);
 
 	$upper_range = $theIncrement + $theData->{'maxResults'};
 
@@ -82,11 +76,10 @@ close $file;
 sub writeData {
 	my ( $theData, $columns ) = @_;
 
-    my %theData = %$theData;
-    my @columns = @$columns;
-
-    my $id = shift @columns;
-    my ( $value, $row_sum );
+  my %theData = %$theData;
+  my @columns = @$columns;
+  my $id = shift @columns;
+  my ( $value, $row_sum );
 
 	foreach my $key ( keys %theData ) {
 		my @row = ($key);
@@ -95,7 +88,7 @@ sub writeData {
 		foreach my $column ( @columns ) {
 			unless ($column eq "Total Time") {
 				unless ($column eq "Points") {
-					$value = $theData{$key}{$column} / 60;
+					$value = $theData{$key}{$column} / 60 #write in minutes, not seconds;
 					$row_sum += $value;
 				} else {
 					$value = $theData{$key}{$column};
@@ -105,9 +98,8 @@ sub writeData {
 		}
 
 		push @row, $row_sum;
-
-    	$csv->print($file, \@row);
-    	print $file "\n";
+    $csv->print($file, \@row);
+    print $file "\n";
 
 	}
 
@@ -122,7 +114,6 @@ sub prepTheFile {
 	}
 
 	push @file_header, "Total Time";
-
 	open $file, ">:encoding(utf8)", "$out_file" or die "$out_file: $!";
 	$csv->column_names (@file_header);
 	$csv->print($file, \@file_header);
@@ -188,6 +179,17 @@ sub processData {
 			}
 		}
 	}
+}
+
+sub clean_url {
+
+  my ($clean) = @_;
+
+  $clean =~ s!^https?://(?:www\.)?!!i;
+  $clean =~ s!/.*!!;
+  $clean =~ s/[\?\#\:].*//;
+
+  return $clean;
 
 }
 

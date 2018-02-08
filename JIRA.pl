@@ -32,7 +32,7 @@ $thePass = ReadLine(0);
 chomp($thePass);
 ReadMode('normal');
 
-$base_url = &clean_url($base_url);
+$theURL = &_cleanURL($theURL);
 
 my (%issue_statuses, $time_passed, $theStatuses, $file, @columns, $upper_range, $theData);
 
@@ -43,37 +43,38 @@ my $theQuery = "search?jql=project+%3D+". $project ."+AND+status+%3D+". $done ."
 my $base_url = "https://". $theURL ."/rest/api/latest/";
 
 my $theIncrement = 0;
-my $out_file = "JIRA-".$project."-data.csv";
+my $out_file = $project."-JIRA-data.csv";
 
 print "Connecting to " . $base_url . " as " . $theUser . "...\n";
 
-my $initialData = &hitTheAPI($base_url, $initialQuery, $theIncrement, $theUser, $thePass);
+my $initialData = &_hitTheAPI($base_url, $initialQuery, $theIncrement, $theUser, $thePass);
 
 do {
 
-	$theData = &hitTheAPI($base_url, $theQuery, $theIncrement, $theUser, $thePass);
+	$theData = &_hitTheAPI($base_url, $theQuery, $theIncrement, $theUser, $thePass);
 
 	$upper_range = $theIncrement + $theData->{'maxResults'};
 
 	if ( $upper_range > $initialData->{'total'} ) {
-		$upper_range = $initialData->{'total'}
+		$upper_range = $initialData->{'total'};
 	}
 
-	print "Getting completed story data for (". $project .") from JIRA... (". ($theIncrement+1) ." - ". $upper_range ." of ". $initialData->{'total'} .")\n";
-	&processData($theData->{'issues'});
+	print "Getting story data for the [". $project ."] project from JIRA... (". ($theIncrement+1) ." - ". $upper_range ." of ". $initialData->{'total'} ." stories)\n";
+	&_processData($theData->{'issues'});
 
 	$theIncrement += $theData->{'maxResults'};
 
 }while ( $theIncrement <= $initialData->{'total'} );
 
-@columns = &prepTheFile( $theStatuses );
-&writeData( \%issue_statuses, \@columns );
+@columns = &_prepTheFile( $theStatuses );
+
+&_writeData( \%issue_statuses, \@columns );
 
 close $file;
 
 ## subroutines below
 
-sub writeData {
+sub _writeData {
 	my ( $theData, $columns ) = @_;
 
   my %theData = %$theData;
@@ -88,7 +89,7 @@ sub writeData {
 		foreach my $column ( @columns ) {
 			unless ($column eq "Total Time") {
 				unless ($column eq "Points") {
-					$value = $theData{$key}{$column} / 60 #write in minutes, not seconds;
+					$value = $theData{$key}{$column} / 60; #write in minutes, not seconds;
 					$row_sum += $value;
 				} else {
 					$value = $theData{$key}{$column};
@@ -105,7 +106,7 @@ sub writeData {
 
 }
 
-sub prepTheFile {
+sub _prepTheFile {
 	my ($statuses) = @_;
 
 	my @file_header = ("Card ID", "Card Type", "Points");
@@ -121,11 +122,10 @@ sub prepTheFile {
 	return @file_header;
 }
 
-sub hitTheAPI {
+sub _hitTheAPI {
 	my ( $base_url, $search_query, $increment, $user, $pass ) = @_;
 
-	#modify search query if increment is not 0
-	if($increment > 0 ) {
+	if($increment != 0 ) {
 		$search_query = $search_query . "&startAt=" . ($increment);
 	}
 
@@ -140,7 +140,7 @@ sub hitTheAPI {
 	return $json_content;
 }
 
-sub processData {
+sub _processData {
 
 	my ( $data ) = @_;
 
@@ -181,7 +181,7 @@ sub processData {
 	}
 }
 
-sub clean_url {
+sub _cleanURL {
 
   my ($clean) = @_;
 
@@ -197,17 +197,23 @@ sub usage {
     print @_, "\n", if @_;
 
     print <<__EOF__;
+
 Exports JIRA Data for a given project into a CSV file.
+
 Usage: $0 --user <string> --url <string> --proj <string> --done <string> --pts <string>
-    --user <string>   - JIRA username (required)
-    --url <string>    - JIRA URL (required)
-    --proj <string>   - JIRA Project Identifier (required)
-    --done <string>   - "Done" status in JIRA (required, case sensitive)
-    --pts <string>    - JIRA field that contains your story points (required)
+
+    --user <string>   - Your JIRA username (required)
+    --url <string>    - URL of your JIRA instance (required)
+    --proj <string>   - Your projects JIRA Project Key (required)
+    --done <string>   - Name of the "Done" status in JIRA (required, case sensitive)
+    --pts <string>    - Name of the JIRA field that contains your story points (required, case sensitive)
+
 You will be prompted for your JIRA password.
+
 __EOF__
 
     exit 1;
 }
 
 exit();
+

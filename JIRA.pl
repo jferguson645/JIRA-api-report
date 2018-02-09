@@ -23,7 +23,7 @@ GetOptions (
             );
 
 unless($project && $theUser && $theURL && $done && $points) {
-	usage();
+  usage();
 }
 
 print "Please enter the JIRA password for $theUser: \n";
@@ -52,18 +52,18 @@ my $initialData = &_hitTheAPI($base_url, $initialQuery, $theIncrement, $theUser,
 
 do {
 
-	$theData = &_hitTheAPI($base_url, $theQuery, $theIncrement, $theUser, $thePass);
+  $theData = &_hitTheAPI($base_url, $theQuery, $theIncrement, $theUser, $thePass);
 
-	$upper_range = $theIncrement + $theData->{'maxResults'};
+  $upper_range = $theIncrement + $theData->{'maxResults'};
 
-	if ( $upper_range > $initialData->{'total'} ) {
-		$upper_range = $initialData->{'total'};
-	}
+  if ( $upper_range > $initialData->{'total'} ) {
+    $upper_range = $initialData->{'total'};
+  }
 
-	print "Getting story data for the [". $project ."] project from JIRA... (". ($theIncrement+1) ." - ". $upper_range ." of ". $initialData->{'total'} ." stories)\n";
-	&_processData($theData->{'issues'});
+  print "Getting story data for the [". $project ."] project from JIRA... (". ($theIncrement+1) ." - ". $upper_range ." of ". $initialData->{'total'} ." stories)\n";
+  &_processData($theData->{'issues'});
 
-	$theIncrement += $theData->{'maxResults'};
+  $theIncrement += $theData->{'maxResults'};
 
 }while ( $theIncrement <= $initialData->{'total'} );
 
@@ -76,111 +76,111 @@ close $file;
 ## subroutines below
 
 sub _writeData {
-	my ( $theData, $columns ) = @_;
+  my ( $theData, $columns ) = @_;
 
   my %theData = %$theData;
   my @columns = @$columns;
   my $id = shift @columns;
   my ( $value, $row_sum );
 
-	foreach my $key ( keys %theData ) {
-		my @row = ($key);
-		$row_sum = 0;
+  foreach my $key ( keys %theData ) {
+  my @row = ($key);
+  $row_sum = 0;
 
-		foreach my $column ( @columns ) {
-			unless ($column eq "Total Time") {
-				unless ($column eq "Points" || $column eq "Card Type") {
-					$value = nearest(.01,(((abs($theData{$key}{$column}) / 60) / 60) / 24)); #write in days, not seconds;
-					$row_sum += $value;
-				} else {
-					$value = $theData{$key}{$column};
-				}
-				push @row, $value;
-			}
-		}
+  foreach my $column ( @columns ) {
+    unless ($column eq "Total Time") {
+      unless ($column eq "Points" || $column eq "Card Type") {
+        $value = nearest(.01,(((abs($theData{$key}{$column}) / 60) / 60) / 24)); #write in days, not seconds;
+        $row_sum += $value;
+      } else {
+        $value = $theData{$key}{$column};
+      }
+      push @row, $value;
+    }
+  }
 
-		push @row, $row_sum;
+  push @row, $row_sum;
     $csv->print($file, \@row);
     print $file "\n";
 
-	}
+  }
 
 }
 
 sub _prepTheFile {
-	my ($statuses) = @_;
+  my ($statuses) = @_;
 
-	my @file_header = ("Card ID", "Card Type", "Points");
-	foreach my $status ( keys $statuses ) {
-		push @file_header, $status;
-	}
+  my @file_header = ("Card ID", "Card Type", "Points");
+  foreach my $status ( keys $statuses ) {
+    push @file_header, $status;
+  }
 
-	push @file_header, "Total Time";
-	open $file, ">:encoding(utf8)", "$out_file" or die "$out_file: $!";
-	$csv->column_names (@file_header);
-	$csv->print($file, \@file_header);
-	print $file "\n";
-	return @file_header;
+  push @file_header, "Total Time";
+  open $file, ">:encoding(utf8)", "$out_file" or die "$out_file: $!";
+  $csv->column_names (@file_header);
+  $csv->print($file, \@file_header);
+  print $file "\n";
+  return @file_header;
 }
 
 sub _hitTheAPI {
-	my ( $base_url, $search_query, $increment, $user, $pass ) = @_;
+  my ( $base_url, $search_query, $increment, $user, $pass ) = @_;
 
-	if($increment != 0 ) {
-		$search_query = $search_query . "&startAt=" . ($increment);
-	}
+  if($increment != 0 ) {
+    $search_query = $search_query . "&startAt=" . ($increment);
+  }
 
-	my $browser = LWP::UserAgent->new( protocols_allowed => [ 'https' ] );
-	my $request = HTTP::Request->new( GET => $base_url . $search_query );
-	$request->authorization_basic( $user, $pass ); 
-	my $result = $browser->request( $request );
-	my $content = $result->content;
+  my $browser = LWP::UserAgent->new( protocols_allowed => [ 'https' ] );
+  my $request = HTTP::Request->new( GET => $base_url . $search_query );
+  $request->authorization_basic( $user, $pass ); 
+  my $result = $browser->request( $request );
+  my $content = $result->content;
 
-	my $json_content = decode_json($content);
+  my $json_content = decode_json($content);
 
-	return $json_content;
+  return $json_content;
 }
 
 sub _processData {
 
-	my ( $data ) = @_;
+  my ( $data ) = @_;
 
-	foreach my $issues ($data) {
-		foreach my $issue(@$issues) {
+  foreach my $issues ($data) {
+    foreach my $issue(@$issues) {
 
-			print "Fetching " . $issue->{'key'} . "...\n";
-			my ($last_fromStatus, $last_toStatus, $last_leftFromTime, $last_enteredToTime, $fromStatus, $toStatus, $leftFromTime, $enteredToTime);
+      print "Fetching " . $issue->{'key'} . "...\n";
+      my ($last_fromStatus, $last_toStatus, $last_leftFromTime, $last_enteredToTime, $fromStatus, $toStatus, $leftFromTime, $enteredToTime);
 
       $issue_statuses{$issue->{'key'}}{'Points'} = $issue->{'fields'}->{$points};
       $issue_statuses{$issue->{'key'}}{'Card Type'} = $issue->{'fields'}->{'issuetype'}->{'name'};
 
-			foreach my $histories($issue->{'changelog'}{'histories'}) {
-				foreach my $history(@$histories){
-					if ($history->{'items'}['']->{'field'} eq "status" || $history->{'items'}['']->{'field'} eq "resolution") {
+      foreach my $histories($issue->{'changelog'}{'histories'}) {
+        foreach my $history(@$histories){
+          if ($history->{'items'}['']->{'field'} eq "status" || $history->{'items'}['']->{'field'} eq "resolution") {
 
-						$last_fromStatus = $fromStatus;
-						$last_toStatus = $toStatus;
-						$last_leftFromTime = $leftFromTime;
-						$last_enteredToTime = $enteredToTime;
+            $last_fromStatus = $fromStatus;
+            $last_toStatus = $toStatus;
+            $last_leftFromTime = $leftFromTime;
+            $last_enteredToTime = $enteredToTime;
 
-						$fromStatus = $history->{'items'}['']->{'fromString'};
-						$toStatus = $history->{'items'}['']->{'toString'};
-						$leftFromTime = $history->{'created'};
-						$enteredToTime = $history->{'created'};
+            $fromStatus = $history->{'items'}['']->{'fromString'};
+            $toStatus = $history->{'items'}['']->{'toString'};
+            $leftFromTime = $history->{'created'};
+            $enteredToTime = $history->{'created'};
 
-						if ($last_toStatus && $last_enteredToTime) {
-							my $first_date = UnixDate($enteredToTime,'%s');
-							my $second_date = UnixDate($last_enteredToTime, '%s');
-							$time_passed = $second_date - $first_date;
-							$issue_statuses{$issue->{'key'}}{$toStatus} += $time_passed;
-							$theStatuses->{$toStatus} = $toStatus;
-							$theStatuses->{$fromStatus} = $fromStatus;
-						}
-					}
-				}
-			}
-		}
-	}
+            if ($last_toStatus && $last_enteredToTime) {
+              my $first_date = UnixDate($enteredToTime,'%s');
+              my $second_date = UnixDate($last_enteredToTime, '%s');
+              $time_passed = $second_date - $first_date;
+              $issue_statuses{$issue->{'key'}}{$toStatus} += $time_passed;
+              $theStatuses->{$toStatus} = $toStatus;
+              $theStatuses->{$fromStatus} = $fromStatus;
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 sub _cleanURL {

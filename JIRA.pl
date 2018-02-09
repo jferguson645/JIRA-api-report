@@ -8,6 +8,7 @@ use LWP::UserAgent;
 use Text::CSV;
 use Date::Manip;
 use JSON;
+use Math::Round;
 
 $ENV{'PERL_LWP_SSL_VERIFY_HOSTNAME'} = 0;
 
@@ -39,7 +40,7 @@ my (%issue_statuses, $time_passed, $theStatuses, $file, @columns, $upper_range, 
 my $csv = Text::CSV->new ( { binary => 1 } ) or die "Cannot use CSV: ".Text::CSV->error_diag();
 
 my $initialQuery = "search?jql=project+%3D+". $project ."+AND+status+%3D+". $done ."&fields=key";
-my $theQuery = "search?jql=project+%3D+". $project ."+AND+status+%3D+". $done ."&fields=id,key,". $points ."&expand=changelog";
+my $theQuery = "search?jql=project+%3D+". $project ."+AND+status+%3D+". $done ."&fields=id,key,issuetype,". $points ."&expand=changelog";
 my $base_url = "https://". $theURL ."/rest/api/latest/";
 
 my $theIncrement = 0;
@@ -88,8 +89,8 @@ sub _writeData {
 
 		foreach my $column ( @columns ) {
 			unless ($column eq "Total Time") {
-				unless ($column eq "Points") {
-					$value = $theData{$key}{$column} / 60; #write in minutes, not seconds;
+				unless ($column eq "Points" || $column eq "Card Type") {
+					$value = nearest(.01,(((abs($theData{$key}{$column}) / 60) / 60) / 24)); #write in days, not seconds;
 					$row_sum += $value;
 				} else {
 					$value = $theData{$key}{$column};
@@ -151,6 +152,7 @@ sub _processData {
 			my ($last_fromStatus, $last_toStatus, $last_leftFromTime, $last_enteredToTime, $fromStatus, $toStatus, $leftFromTime, $enteredToTime);
 
 			$issue_statuses{$issue->{'key'}}{'Points'} = $issue->{'fields'}->{$points};
+      $issue_statuses{$issue->{'key'}}{'Card Type'} = $issue->{'fields'}->{'issuetype'}->{'name'};
 
 			foreach my $histories($issue->{'changelog'}{'histories'}) {
 				foreach my $history(@$histories){

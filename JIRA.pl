@@ -151,7 +151,7 @@ sub _processData {
 			print "Fetching " . $issue->{'key'} . "...\n";
 			my ($last_fromStatus, $last_toStatus, $last_leftFromTime, $last_enteredToTime, $fromStatus, $toStatus, $leftFromTime, $enteredToTime);
 
-			$issue_statuses{$issue->{'key'}}{'Points'} = $issue->{'fields'}->{$points};
+      $issue_statuses{$issue->{'key'}}{'Points'} = $issue->{'fields'}->{$points};
       $issue_statuses{$issue->{'key'}}{'Card Type'} = $issue->{'fields'}->{'issuetype'}->{'name'};
 
 			foreach my $histories($issue->{'changelog'}{'histories'}) {

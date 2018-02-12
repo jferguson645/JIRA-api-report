@@ -220,7 +220,7 @@ sub usage {
 
 Exports JIRA Data for a given project into a CSV file.
 
-Usage: $0 --user <string> --url <string> --proj <string> --pts <string> --done <string> 
+Usage: perl $0 --user <string> --url <string> --proj <string> --pts <string> --done <string> 
 
     --user <string>   - Your JIRA username (required)
     --url <string>    - URL of your JIRA instance (required)

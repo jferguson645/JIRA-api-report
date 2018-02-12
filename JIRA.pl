@@ -12,7 +12,7 @@ use Math::Round;
 
 $ENV{'PERL_LWP_SSL_VERIFY_HOSTNAME'} = 0;
 
-my ( $project, $theUser, $thePass, $theURL, $done, $points );
+my ( $project, $theUser, $thePass, $theURL, $points, $done );
 
 GetOptions (
             "proj=s"    => \$project,
@@ -22,11 +22,15 @@ GetOptions (
             "pts=s"     => \$points,
             );
 
-unless($project && $theUser && $theURL && $done && $points) {
+unless($project && $theUser && $theURL && $points) {
   usage();
 }
 
-print "Please enter the JIRA password for $theUser: \n";
+unless ($done) {
+  $done = "Done";
+}
+
+print "\nPlease enter the JIRA password for $theUser: \n";
 
 ReadMode('noecho');
 $thePass = ReadLine(0);
@@ -46,9 +50,13 @@ my $base_url = "https://". $theURL ."/rest/api/latest/";
 my $theIncrement = 0;
 my $out_file = $project."-JIRA-data.csv";
 
-print "Connecting to " . $base_url . " as " . $theUser . "...\n";
-
+print "\nConnecting to [" . $base_url . "] as [" . $theUser . "]...\n";
 my $initialData = &_hitTheAPI($base_url, $initialQuery, $theIncrement, $theUser, $thePass);
+
+if($initialData->{'total'} == 0) {
+  print "No issues retrieved using \"Done\" status of [".$done."]. Please verify this is the correct status for the project [".$project."].\n\n";
+  exit();
+}
 
 do {
 
@@ -60,15 +68,17 @@ do {
     $upper_range = $initialData->{'total'};
   }
 
-  print "Getting story data for the [". $project ."] project from JIRA... (". ($theIncrement+1) ." - ". $upper_range ." of ". $initialData->{'total'} ." stories)\n";
+  print "\nGetting story data for the [". $project ."] project from JIRA... (". ($theIncrement+1) ." - ". $upper_range ." of ". $initialData->{'total'} ." stories)\n\n";
   &_processData($theData->{'issues'});
 
   $theIncrement += $theData->{'maxResults'};
 
 }while ( $theIncrement <= $initialData->{'total'} );
 
-@columns = &_prepTheFile( $theStatuses );
+print "\nRetrieved ".$upper_range." of ".$initialData->{'total'}." stories.\n";
+print "Writing data to ".$out_file.".\n\n";
 
+@columns = &_prepTheFile( $theStatuses );
 &_writeData( \%issue_statuses, \@columns );
 
 close $file;
@@ -84,22 +94,23 @@ sub _writeData {
   my ( $value, $row_sum );
 
   foreach my $key ( keys %theData ) {
-  my @row = ($key);
-  $row_sum = 0;
+    my @row = ($key);
+    $row_sum = 0;
 
-  foreach my $column ( @columns ) {
-    unless ($column eq "Total Time") {
-      unless ($column eq "Points" || $column eq "Card Type") {
-        $value = nearest(.01,(((abs($theData{$key}{$column}) / 60) / 60) / 24)); #write in days, not seconds;
-        $row_sum += $value;
-      } else {
-        $value = $theData{$key}{$column};
+    foreach my $column ( @columns ) {
+      unless ($column eq "Total Time") {
+        unless ($column eq "Points" || $column eq "Card Type") {
+          #write in days, not seconds. Always return a positive number.
+          $value = nearest(.001,(((abs($theData{$key}{$column}) / 60) / 60) / 24)); 
+          $row_sum += $value;
+        } else {
+          $value = $theData{$key}{$column};
+        }
+        push @row, $value;
       }
-      push @row, $value;
     }
-  }
 
-  push @row, $row_sum;
+    push @row, $row_sum;
     $csv->print($file, \@row);
     print $file "\n";
 
@@ -133,10 +144,17 @@ sub _hitTheAPI {
   my $browser = LWP::UserAgent->new( protocols_allowed => [ 'https' ] );
   my $request = HTTP::Request->new( GET => $base_url . $search_query );
   $request->authorization_basic( $user, $pass ); 
+
   my $result = $browser->request( $request );
   my $content = $result->content;
+  my $json_content;
 
-  my $json_content = decode_json($content);
+  eval { $json_content = decode_json($content); };
+
+  if ($@) {
+    print "\nUnable to connect to [".$base_url."] as [".$theUser."] using the provided password.\n\n";
+    exit();
+  }
 
   return $json_content;
 }
@@ -148,7 +166,7 @@ sub _processData {
   foreach my $issues ($data) {
     foreach my $issue(@$issues) {
 
-      print "Fetching " . $issue->{'key'} . "...\n";
+      print "Fetching [" . $issue->{'key'} . "]...\n";
       my ($last_fromStatus, $last_toStatus, $last_leftFromTime, $last_enteredToTime, $fromStatus, $toStatus, $leftFromTime, $enteredToTime);
 
       $issue_statuses{$issue->{'key'}}{'Points'} = $issue->{'fields'}->{$points};
@@ -202,13 +220,13 @@ sub usage {
 
 Exports JIRA Data for a given project into a CSV file.
 
-Usage: $0 --user <string> --url <string> --proj <string> --done <string> --pts <string>
+Usage: $0 --user <string> --url <string> --proj <string> --pts <string> --done <string> 
 
     --user <string>   - Your JIRA username (required)
     --url <string>    - URL of your JIRA instance (required)
     --proj <string>   - Your projects JIRA Project Key (required)
-    --done <string>   - Name of the "Done" status in JIRA (required, case sensitive)
-    --pts <string>    - Name of the JIRA field that contains your story points (required, case sensitive)
+    --pts <string>    - Name of the internal JIRA field that contains story points (required, case sensitive)
+    --done <string>   - Name of the "Done" status in JIRA (optional, case sensitive) (Defaults to "Done")
 
 You will be prompted for your JIRA password.
 
